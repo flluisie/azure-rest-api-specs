@@ -76,46 +76,6 @@
         }
       }
     },
-    "/custom/models/{id}/keys": {
-      "get": {
-        "summary": "Get Keys",
-        "description": "Retrieve the keys that were\r\n extracted during the training of the specified model.",
-        "operationId": "GetExtractedKeys",
-        "consumes": [],
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "description": "Model identifier.",
-            "required": true,
-            "type": "string",
-            "format": "uuid"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "schema": {
-              "$ref": "#/definitions/KeysResult"
-            }
-          },
-          "default": {
-            "description": "Response entity accompanying non-successful responses containing additional details about the error.",
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
-          }
-        },
-        "x-ms-examples": {
-          "Get Keys from Model": {
-            "$ref": "./examples/GetKeys.json"
-          }
-        }
-      }
-    },
     "/custom/models": {
       "get": {
         "summary": "Get Models",
@@ -164,7 +124,13 @@
             "required": true,
             "type": "string",
             "format": "uuid"
-          }
+          },
+          {
+            "name": "keys",
+            "in": "query",
+            "description": "Get keys extracted by this model.",
+            "required": false
+          }          
         ],
         "responses": {
           "200": {
@@ -284,9 +250,230 @@
           }
         }
       }
-    }
+    },
+    "/custom/trainbatch": {
+      "post": {
+        "summary": "Train Batch Model",
+        "description": "Create and train a custom model. The train request must include a source parameter that is either an externally accessible Azure Storage blob container Uri (preferably a Shared Access Signature Uri) or valid path to a data folder in a locally mounted drive. When local paths are specified, they must follow the Linux/Unix path format and be an absolute path rooted to the input mount configuration\r\n setting value e.g., if '{Mounts:Input}' configuration setting value is '/input' then a valid source path would be '/input/contosodataset'. All data to be trained is expected to be directly under the source folder. Subfolders are not supported. Models are trained using documents that are of the following content type - 'application/pdf', 'image/jpeg' and 'image/png'.\"\r\n Other type of content is ignored.",
+        "operationId": "TrainbatchCustomModel",
+        "consumes": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "trainRequest",
+            "in": "body",
+            "description": "Request object for training.",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/TrainRequest"
+            }
+          },
+          {
+            "name": "labelFile",
+            "in": "query",
+            "description": "Specify if label file should be used for training.",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "yes",
+                "no"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Operation-Location": {
+                "type": "string",
+                "description": "Operation location with an operation id used to track the progress of training. The returned id is the operation id, not trained model id. Trained model id can be obtained only when the operation status becomes \"succeeded\" in OperationStatus - Get."
+              }
+            }
+          },
+          "default": {
+            "description": "Response entity accompanying non-successful responses containing additional details about the error.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-examples": {
+          "Train Batch new model example": {
+            "$ref": "./examples/TrainBatch.json"
+          },
+          "Train Batch new model example, subfolder filter options": {
+            "$ref": "./examples/TrainBatchWithSubFolders.json"
+          }
+        }
+      }
+    },
+    "/custom/models/{id}/analyzebatch": {
+      "post": {
+        "summary": "Analyze Batch Form",
+        "description": "Extract key-value pairs from a given document. The input document must be of one of the supported content types - 'application/pdf', 'image/jpeg' or 'image/png'. A success response is returned in JSON.",
+        "operationId": "AnalyzeBatchWithCustomModel",
+        "consumes": [
+          "application/pdf",
+          "image/jpeg",
+          "image/png",
+          "multipart/form-data"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Model Identifier to analyze the document with.",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          },
+          {
+            "name": "keys",
+            "in": "query",
+            "description": "An optional list of known keys to extract the values for.",
+            "required": false,
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": false
+          },
+          {
+            "name": "form_stream",
+            "in": "formData",
+            "description": "A pdf document or image (jpg,png) file to analyze.",
+            "required": true,
+            "type": "file"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Operation-Location": {
+                "type": "string",
+                "description": "Operation location with an operation id used to track the progress of analyze operation. The returned id is the operation id. Result of analyze operation can be obtained only when the operation status becomes \"succeeded\" in OperationStatus - Get."
+              }
+            }
+          },
+          "default": {
+            "description": "Response entity accompanying non-successful responses containing additional details about the error.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-examples": {
+          "Get Model from id": {
+            "$ref": "./examples/AnalyzeBatch.json"
+          }
+        }
+      }
+    },
+    "/custom/operation/{id}": {
+      "get": {
+        "summary": "Get Operation Result",
+        "description": "Retrieve batch operation status and related results.",
+        "operationId": "GetBatchOperationResult",
+        "consumes": [],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Operation identifier.",
+            "required": true,
+            "type": "string",
+            "format": "uuid"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/OperationResult"
+            }
+          },
+          "default": {
+            "description": "Response entity accompanying non-successful responses containing additional details about the error.",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        },
+        "x-ms-examples": {
+          "Get Keys from Model": {
+            "$ref": "./examples/GetOperationResult.json"
+          }
+        }
+      }
+    }    
   },
   "definitions": {
+    "OperationResult": {
+      "description": "Status and result of batch operation.",
+      "type": "object",
+      "properties": {
+        "status": {
+          "description": "status of batch operation.",
+          "type": "object",
+          "properties": {
+            "operationStatus": {
+              "description": "Status of batch operation.",
+              "type": "object",
+              "properties": {
+                "status": {
+                  "description": "Get status of batch operation.",
+                  "enum": [
+                    "NotStarted",
+                    "Running",
+                    "Succeeded",
+                    "Failed"
+                  ],
+                  "type": "string"
+                },
+                "createdDateTime": {
+                  "format": "date-time",
+                  "description": "Get date time the batch operation was submitted.",
+                  "type": "string"
+                },
+                "lastUpdatedDateTime": {
+                  "format": "date-time",
+                  "description": "Get last updated date time of this batch operation.",
+                  "type": "string"
+                },
+                "percentageCompleted": {
+                  "decription": "Percentage of batch operation completed.",
+                  "type": "string"
+                }
+              }
+            },
+            "result": {
+              "description": "Result of batch operation.",
+              "type": "object",
+              "properties": {
+                "trainBatchResult": { 
+                  "description": "Train batch operation result.",
+                  "$ref": "#/definitions/TrainResult"
+                },
+                "analyzeBatchResult": {  
+                  "description": "Analyze batch operation result.",
+                  "$ref": "#/definitions/AnalyzeResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },    
     "TrainRequest": {
       "description": "Contract to initiate a train request.",
       "required": [
@@ -351,7 +538,7 @@
       }
     },
     "KeysResult": {
-      "description": "Result of an operation to get\r\nthe keys extracted by a model.",
+      "description": "Keys extracted by a model.",
       "type": "object",
       "properties": {
         "clusters": {
@@ -395,7 +582,11 @@
           "format": "date-time",
           "description": "Get or set the model last updated datetime.",
           "type": "string"
-        }
+        },
+        "Keys": {
+          "$ref": "#/definitions/KeysResult",
+          "description": "Keys extracted by model."
+        }        
       }
     },
     "ModelsResult": {
